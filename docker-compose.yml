@@ -1,0 +1,54 @@
+volumes:
+  fleet-data:
+    external: true
+services:
+  react:
+    image: node:lts-bullseye
+    command: /bin/bash run.sh
+    working_dir: /app
+    volumes:
+      - ./ghi/app:/app
+    ports:
+      - "3000:3000"
+    environment:
+      HOST_OS: ${OS}
+      NODE_ENV: development
+      HOST: "0.0.0.0"
+  database:
+    image: postgres:14.2-bullseye
+    volumes:
+      - fleet-data:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d
+    environment:
+      - POSTGRES_MULTIPLE_DATABASES=cars,users
+      - POSTGRES_PASSWORD=test-databases
+    ports:
+      - 15432:5432
+  cars-api:
+    build:
+      context: ./cars/api
+      dockerfile: ./Dockerfile.dev
+    ports:
+      - "8100:8000"
+    volumes:
+      - ./cars/api:/app
+    depends_on:
+      - database
+    environment:
+      DATABASE_URL: postgres://cars:password@database:5432/cars
+      WAIT_HOSTS: database:5432
+      WAIT_TIMEOUT: 240
+  users-api:
+    build:
+      context: ./users/api
+      dockerfile: ./Dockerfile.dev
+    ports:
+      - "8080:8000"
+    volumes:
+      - ./users/api:/app
+    depends_on:
+      - database
+    environment:
+      DATABASE_URL: postgres://users:password@database:5432/users
+      WAIT_HOSTS: database:5432
+      WAIT_TIMEOUT: 240
